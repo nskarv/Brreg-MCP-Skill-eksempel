@@ -1,0 +1,51 @@
+openapi: 3.1.0
+info:
+  title: Enhetsregisteret
+  version: "1.0"
+  description: Brønnøysundregistrenes åpne API for Enhetsregisteret, uten nøkkel. Søk etter enheter på navn og slå opp én enhet på organisasjonsnummer. Data under Norsk lisens for offentlige data (NLOD 2.0); oppgi Brønnøysundregistrene som kilde.
+servers:
+  - url: https://data.brreg.no
+paths:
+  /enhetsregisteret/api/enheter:
+    get:
+      operationId: sokFirma
+      summary: Søk etter firma og andre enheter på navn
+      description: Bruk når brukeren nevner et firma uten organisasjonsnummer. Skriv navnet med små bokstaver; det gir flere treff. De mest relevante står først i _embedded.enheter. Les organisasjonsnummer, navn, organisasjonsform.beskrivelse, forretningsadresse.kommune og antallAnsatte. Kan flere treff passe, spør brukeren. Mangler _embedded, finnes ingen treff.
+      parameters:
+        - name: navn
+          in: query
+          required: true
+          schema: { type: string }
+          description: Hele eller deler av navnet, med små bokstaver, for eksempel «equinor»
+        - name: size
+          in: query
+          required: false
+          schema: { type: integer, default: 5 }
+          description: Antall treff. 5 holder nesten alltid.
+      responses:
+        "200":
+          description: Treffliste. page.totalElements er antall treff i alt.
+          content:
+            application/json:
+              schema: { type: object }
+  /enhetsregisteret/api/enheter/{orgnr}:
+    get:
+      operationId: slaaOppFirma
+      summary: Slå opp én enhet på organisasjonsnummer
+      description: Gir navn, organisasjonsform, forretningsadresse, naeringskode1 til 3, antallAnsatte, stiftelsesdato, registrertIMvaregisteret, konkurs, underAvvikling, slettedato og historiskeNavn. Si alltid status. 404 betyr at nummeret ikke finnes (kan være en underenhet); 410 betyr at enheten er fjernet av juridiske årsaker.
+      parameters:
+        - name: orgnr
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9]{9}$" }
+          description: Ni sifre uten mellomrom, for eksempel 923609016
+      responses:
+        "200":
+          description: Enheten
+          content:
+            application/json:
+              schema: { type: object }
+        "404":
+          description: Ikke funnet
+        "410":
+          description: Fjernet av juridiske årsaker
