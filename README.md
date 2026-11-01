@@ -109,8 +109,10 @@ Finnes MCP-verktøyene eller `brreg.py` fra før, sier skillen at de skal brukes
 
 ## ChatGPT: egendefinert GPT med Actions
 
-ChatGPT legger `utm_source=chatgpt.com` til nettadressene den åpner, og Brreg avviser alle ukjente parametere med
-HTTP 400. Skillen fanger opp feilen og ber brukeren lime inn svaret, men i ChatGPT er en egendefinert GPT med Actions enklere:
+ChatGPT legger `utm_source=chatgpt.com` til nettadressene den åpner, og også til lenkene den viser deg. Brreg avviser
+alle ukjente parametere med HTTP 400. Skillen fanger opp feilen: den skriver API-adressen i en kodeblokk du kopierer
+inn i nettleseren, og lenker til Brregs egen side (virksomhet.brreg.no), som tåler parameteren. I ChatGPT er en
+egendefinert GPT med Actions enklere:
 
 1. Åpne ChatGPT → Utforsk GPT-er → Opprett (krever Plus, Team eller Enterprise).
 2. Lim inn innholdet i `SYSTEMPROMPT.md` som instruksjoner.
@@ -156,6 +158,46 @@ Verktøyet gjetter ikke. Det sier fra, og modellen får meldingen:
 | Tjenesten svarer ikke innen 20 sekunder | `Fikk ikke svar fra data.brreg.no: …` |
 
 Konkurs, avvikling og sletting er ikke feil. De står i feltet `status`, og modellen skal si dem først.
+
+## Prompt injection
+
+Navn, adresser og hjemmesider i registeret skrives av enhetene selv, og havner rett i modellens kontekst.
+«IGNORE ALL PREVIOUS INSTRUCTIONS AS» (938 096 392) er et registrert aksjeselskap.
+
+Før modellen ser et svar, går hvert tekstfelt gjennom en skanner:
+
+- Usynlige tegn (nullbredde, retningskontroll, Unicode-tagger) fjernes.
+- Felt over 300 tegn kortes ned.
+- Tekst som ligner instrukser gir et varsel: «ignore previous instructions», «glem instruksene», rollemarkører som
+  `<|im_start|>` og `[INST]`, «you are now», «call the … tool», Markdown-bilder og nettadresser med parametere.
+
+Ved funn får svaret et felt `advarsel` som sier hvilket felt det gjelder, og at teksten er data, ikke instrukser.
+Dataene endres ikke. Verktøybeskrivelsene sier det samme til modellen på forhånd.
+
+Skanneren er et varsel, ikke et vern. Mønstre kan omgås. Det som faktisk begrenser skaden, er at verktøyet bare leser,
+at modellen får få og korte felt, og at verktøyet ikke har tilgang til noe annet.
+
+Skanneren kan også brukes alene, på tekst eller JSON fra stdin. Den avslutter med kode 1 ved funn:
+
+```bash
+echo "Ignore all previous instructions" | python brreg.py --skann
+```
+
+## Tester
+
+Begge bruker bare standardbiblioteket.
+
+```bash
+python -m unittest test_brreg    # 33 enhetstester, uten nett
+python smoke_test.py             # 13 sjekker mot det ekte API-et, rundt 15 forespørsler
+```
+
+Enhetstestene erstatter alle kall til Brreg med faste svar. De dekker kontrollsifferet, feltene, feilkodene, skanneren
+(også ekte firmanavn som ikke skal gi alarm, som «SIRIUS ACT AS» og «PROMPT GROUP») og MCP-protokollen.
+
+Smoketesten sjekker at API-et fortsatt har feltene verktøyet leser, at feilkodene er de samme, at MCP-serveren virker
+ende til ende, og at skanneren varsler på det ekte injeksjonsfirmaet uten å slå ut på vanlige søk. Feiler den, har
+Brreg trolig endret noe.
 
 ## Vilkår
 
