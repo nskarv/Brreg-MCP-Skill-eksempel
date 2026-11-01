@@ -100,10 +100,14 @@ def _():
     return "som dokumentert i SKILL.md"
 
 
-@sjekk("Brregs nettside tåler utm_source")
+@sjekk("ChatGPT-veien: Brregs nettside tåler utm_source")
 def _():
     status, tekst = raa(f"https://virksomhet.brreg.no/nb/oppslag/enheter/{EQUINOR}?utm_source=chatgpt.com")
-    assert status == 200 and "EQUINOR ASA" in tekst, f"HTTP {status}; reserveveien i SKILL.md virker ikke"
+    assert status == 200, f"HTTP {status}; ChatGPT-veien i SKILL.md virker ikke"
+    # Skillen lover at navn, nummer, adresse og organisasjonsform står i teksten, ikke bare i skript.
+    for ord in ["EQUINOR ASA", "923 609 016", "Forusbeen", "Allmennaksjeselskap"]:
+        assert ord in tekst, f"«{ord}» mangler på siden; oppdater «ChatGPT uten Actions» i SKILL.md"
+    return f"{len(tekst) // 1000} kB"
 
 
 @sjekk("Verktøy: slaa_opp_firma Equinor")
@@ -178,8 +182,9 @@ def _():
 
 @sjekk("GitHub: SKILL.md kan hentes")
 def _():
-    status, tekst = raa(SKILL_URL)
+    status, tekst = raa(SKILL_URL + "?utm_source=chatgpt.com")  # slik ChatGPT henter den
     assert status == 200 and tekst.startswith("---\nname: brreg"), f"HTTP {status}"
+    assert "ChatGPT uten Actions" in tekst, "GitHub har en eldre SKILL.md; push endringene"
 
 
 feil = resultater.count("FEIL")

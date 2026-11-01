@@ -109,10 +109,11 @@ Finnes MCP-verktøyene eller `brreg.py` fra før, sier skillen at de skal brukes
 
 ## ChatGPT: egendefinert GPT med Actions
 
-ChatGPT legger `utm_source=chatgpt.com` til nettadressene den åpner, og også til lenkene den viser deg. Brreg avviser
-alle ukjente parametere med HTTP 400. Skillen fanger opp feilen: den skriver API-adressen i en kodeblokk du kopierer
-inn i nettleseren, og lenker til Brregs egen side (virksomhet.brreg.no), som tåler parameteren. I ChatGPT er en
-egendefinert GPT med Actions enklere:
+ChatGPT legger `utm_source=chatgpt.com` til nettadressene den åpner, og også til lenkene den viser deg. API-et avviser
+alle ukjente parametere med HTTP 400, så det virker aldri fra en vanlig ChatGPT-samtale. Skillen sender derfor ChatGPT
+en annen vei: oppslag på nummer går til Brregs egen side (virksomhet.brreg.no), som tåler parameteren, men som ikke
+viser status eller MVA. Søk på navn går ikke der, fordi søkesiden trenger JavaScript; da finner ChatGPT nummeret med
+nettsøk eller spør deg, og bekrefter det hos Brreg. Hele svaret får du med en egendefinert GPT med Actions:
 
 1. Åpne ChatGPT → Utforsk GPT-er → Opprett (krever Plus, Team eller Enterprise).
 2. Lim inn innholdet i `SYSTEMPROMPT.md` som instruksjoner.
