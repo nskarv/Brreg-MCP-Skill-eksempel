@@ -1,10 +1,11 @@
 # Brreg: et KI-verktøy du kan kjøre selv
 
-Søker etter firma og slår opp organisasjonsnummer i Enhetsregisteret hos Brønnøysundregistrene. Eksempelet fra
+Søker etter firma, slår opp organisasjonsnummer og henter årsregnskap og roller hos Brønnøysundregistrene. Eksempelet fra
 artikkelen [Bygg et KI-verktøy](https://nskarv.no/notater/bygg-et-ki-verktoy/) på nskarv.no, del 4 av serien om KI i praksis.
 
-Én Python-fil, ingen pakker å installere, ingen nøkler, ingen konto. Én åpen tjeneste gjør jobben:
-[Enhetsregisterets API](https://data.brreg.no/enhetsregisteret/api/dokumentasjon/no/index.html).
+Én Python-fil, ingen pakker å installere, ingen nøkler, ingen konto. To åpne tjenester gjør jobben:
+[Enhetsregisterets API](https://data.brreg.no/enhetsregisteret/api/dokumentasjon/no/index.html) og
+Regnskapsregisterets API (`https://data.brreg.no/regnskapsregisteret/regnskap/<orgnr>`).
 
 ## Kjør som kommando
 
@@ -13,6 +14,8 @@ Krever Python 3.10 eller nyere.
 ```bash
 python brreg.py Equinor
 python brreg.py 923 609 016
+python brreg.py regnskap 923609016
+python brreg.py roller 923609016
 ```
 
 Bare sifre betyr organisasjonsnummer. Alt annet er et navn. Søket gir opptil ti treff:
@@ -55,7 +58,47 @@ Oppslaget på nummer gir detaljene:
 }
 ```
 
-Brreg svarer med 3 kB for ett firma og 21 kB for ti søketreff. Verktøyet gir modellen 0,7 og 2 kB.
+Regnskapet gir de siste årene, nyeste først, for selskapet og for konsernet når det finnes. Beløp er i hele enheter
+av valutaen som står oppgitt. Driftsmargin og egenkapitalandel er regnet ut i koden, så modellen slipper å regne:
+
+```json
+{
+  "organisasjonsnummer": "923609016",
+  "regnskap": [
+    {"type": "selskap", "periode": "2025-01-01 til 2025-12-31", "valuta": "USD", "regnskapsregler": "forenkletAnvendelseIFRS",
+     "revisjon": "revidert", "driftsinntekter": 67956000000, "driftskostnader": 62393000000, "driftsresultat": 5563000000,
+     "netto_finans": 561000000, "resultat_foer_skatt": 6124000000, "skattekostnad": 393000000, "aarsresultat": 5731000000,
+     "sum_eiendeler": 103432000000, "bankinnskudd_og_kontanter": 17651000000, "egenkapital": 39182000000,
+     "gjeld": 64249000000, "kortsiktig_gjeld": 36924000000, "langsiktig_gjeld": 27325000000,
+     "driftsmargin_prosent": 8.2, "egenkapitalandel_prosent": 37.9},
+    "… konsernregnskapet for 2025, og begge for 2024 og 2023"
+  ],
+  "merknad": "Beløp i hele enheter, ikke i tusen. Valuta: USD. Ikke kall beløpene kroner.",
+  "kilde": "Regnskapsregisteret, Brønnøysundregistrene"
+}
+```
+
+Rollene gir navn og rolle, og organisasjonsnummer for revisor og regnskapsfører. Fødselsdatoene står i de åpne
+dataene, men verktøyet tar dem bort; modellen trenger dem ikke.
+
+```json
+{
+  "organisasjonsnummer": "923609016",
+  "roller": [
+    {"rolle": "Daglig leder", "navn": "Anders Opedal"},
+    {"rolle": "Styrets leder", "navn": "Jarle Kjell Roth"},
+    {"rolle": "Revisor", "navn": "ERNST & YOUNG AS", "organisasjonsnummer": "976389387"}
+  ],
+  "kilde": "Enhetsregisteret, Brønnøysundregistrene (NLOD 2.0)"
+}
+```
+
+| Oppslag | Brreg svarer med | Verktøyet gir modellen |
+| --- | --- | --- |
+| Ett firma | 3 kB | 0,7 kB |
+| Ti søketreff | 21 kB | 2 kB |
+| Regnskap, tre år, selskap og konsern | 9,5 kB | 3,8 kB (1,4 kB for ett år) |
+| Roller | 6,4 kB | 0,9 kB |
 
 ## Kjør som MCP-server
 
@@ -65,8 +108,9 @@ Da kan en språkmodell bruke verktøyet. Ingenting mer skal installeres: filen s
 python brreg.py --mcp
 ```
 
-Programmet venter på en klient. Du starter det normalt ikke selv; klienten gjør det. Serveren har to verktøy:
-`sok_firma` (navn inn, treffliste ut) og `slaa_opp_firma` (organisasjonsnummer inn, detaljer ut).
+Programmet venter på en klient. Du starter det normalt ikke selv; klienten gjør det. Serveren har fire verktøy:
+`sok_firma` (navn inn, treffliste ut), `slaa_opp_firma` (organisasjonsnummer inn, detaljer ut), `hent_regnskap`
+(organisasjonsnummer og eventuelt år inn, regnskap ut) og `hent_roller` (organisasjonsnummer inn, roller ut).
 
 **Claude Desktop**: legg dette i `claude_desktop_config.json` (Settings → Developer → Edit Config) og start Claude Desktop på nytt.
 Bruk full sti til filen.
@@ -113,20 +157,22 @@ ChatGPT legger `utm_source=chatgpt.com` til nettadressene den åpner, og også t
 alle ukjente parametere med HTTP 400, så det virker aldri fra en vanlig ChatGPT-samtale. Skillen sender derfor ChatGPT
 en annen vei: oppslag på nummer går til Brregs egen side (virksomhet.brreg.no), som tåler parameteren, men som ikke
 viser status eller MVA. Søk på navn går ikke der, fordi søkesiden trenger JavaScript; da finner ChatGPT nummeret med
-nettsøk eller spør deg, og bekrefter det hos Brreg. Hele svaret får du med en egendefinert GPT med Actions:
+nettsøk eller spør deg, og bekrefter det hos Brreg. Regnskap og roller virker direkte, fordi de to adressene tåler
+parameteren. Hele svaret får du med en egendefinert GPT med Actions:
 
 1. Åpne ChatGPT → Utforsk GPT-er → Opprett (krever Plus, Team eller Enterprise).
 2. Lim inn innholdet i `SYSTEMPROMPT.md` som instruksjoner.
 3. Under Actions, velg «Opprett ny action», lim inn innholdet i `actions/brreg.yaml`, autentisering «None».
-4. Lagre, og spør: «Slå opp Equinor.»
+4. Lagre, og spør: «Slå opp Equinor, med regnskap og daglig leder.»
 
-Actions-filen beskriver to kall: `sokFirma` og `slaaOppFirma`. GPT-en bygger parameterne selv, så ingen nettadresser
+Actions-filen beskriver fire kall: `sokFirma`, `slaaOppFirma`, `hentRegnskap` og `hentRoller`. GPT-en bygger parameterne selv, så ingen nettadresser
 settes sammen i chatten. Ikke testet i en egendefinert GPT ennå.
 
 ## Systemprompt for en agent
 
 `SYSTEMPROMPT.md` er en ferdig systemprompt for en agent som bare gjør dette: hva den gjør ved start, en arbeidsflyt
-i seks steg (samle inn, søk, velg riktig treff, slå opp, svar, tilby neste steg), reglene og et eksempel. Filen er bare
+i seks steg (samle inn, søk, velg riktig treff, slå opp det brukeren spør om, svar, tilby neste steg), reglene og et
+eksempel med regnskap og daglig leder. Filen er bare
 prompten, uten forklaring, så den kan limes rett inn.
 
 - **Som systemprompt:** i AnythingLLM, som instruksjoner i et Claude-prosjekt eller en egendefinert GPT, eller i en
@@ -156,6 +202,9 @@ Verktøyet gjetter ikke. Det sier fra, og modellen får meldingen:
 | Nummeret finnes ikke (HTTP 404) | `… finnes ikke i Enhetsregisteret. Det kan være nummeret til en avdeling (underenhet). Søk på navnet i stedet.` |
 | Fjernet av juridiske årsaker (HTTP 410) | `… er fjernet fra Enhetsregisterets åpne data av juridiske årsaker.` |
 | Ingen treff på navnet | `Fant ingen enheter med navn som ligner «…». Be om organisasjonsnummer eller en annen stavemåte.` |
+| Ingen regnskap levert (HTTP 404) | `Fant ikke årsregnskap for … i Regnskapsregisteret. Mange enkeltpersonforetak og foreninger har ikke plikt til å levere regnskap, og nye selskap har ikke levert ennå.` |
+| Bank eller forsikring (HTTP 500 fra Brreg) | `Regnskapsregisteret gir ikke ut regnskapet for … i åpne data, fordi det følger oppstillingsplanen for bank. Se virksomhet.brreg.no.` |
+| Ingen roller (HTTP 404) | `Fant ingen roller for …. Sjekk nummeret med slaa_opp_firma.` |
 | Tjenesten svarer ikke innen 20 sekunder | `Fikk ikke svar fra data.brreg.no: …` |
 
 Konkurs, avvikling og sletting er ikke feil. De står i feltet `status`, og modellen skal si dem først.
@@ -189,20 +238,25 @@ echo "Ignore all previous instructions" | python brreg.py --skann
 Begge bruker bare standardbiblioteket.
 
 ```bash
-python -m unittest test_brreg    # 33 enhetstester, uten nett
-python smoke_test.py             # 13 sjekker mot det ekte API-et, rundt 15 forespørsler
+python -m unittest test_brreg    # 45 enhetstester, uten nett
+python smoke_test.py             # 19 sjekker mot de ekte API-ene, rundt 25 forespørsler
 ```
 
-Enhetstestene erstatter alle kall til Brreg med faste svar. De dekker kontrollsifferet, feltene, feilkodene, skanneren
+Enhetstestene erstatter alle kall til Brreg med faste svar. De dekker kontrollsifferet, feltene, regnskap (sortering,
+nøkkeltall, valuta, tomme felt, bank), roller (uten fødselsdato, uten avregistrerte), feilkodene, skanneren
 (også ekte firmanavn som ikke skal gi alarm, som «SIRIUS ACT AS» og «PROMPT GROUP») og MCP-protokollen.
 
-Smoketesten sjekker at API-et fortsatt har feltene verktøyet leser, at feilkodene er de samme, at MCP-serveren virker
+Smoketesten sjekker at API-ene fortsatt har feltene verktøyet leser, at feilkodene er de samme, at regnskap og roller
+fortsatt tåler ChatGPTs sporingsparameter, at MCP-serveren virker
 ende til ende, og at skanneren varsler på det ekte injeksjonsfirmaet uten å slå ut på vanlige søk. Feiler den, har
 Brreg trolig endret noe.
 
 ## Vilkår
 
 - Enhetsregisteret er åpne data under [Norsk lisens for offentlige data (NLOD 2.0)](https://data.norge.no/nlod/no/2.0). Oppgi Brønnøysundregistrene som kilde.
+- Regnskapsregisteret er oppført som åpne data med allmenn tilgang i Felles datakatalog (data.norge.no). Lisensen står
+  ikke i API-dokumentasjonen; sjekk vilkårene selv før du bruker dataene i større skala.
+- Rollene har fødselsdatoer for personer. Verktøyet tar dem bort, og skillen sier at de aldri skal vises.
 - Brreg ber om at enheter som svarer 410, også fjernes fra kopier og cacher. Verktøyet lagrer ingenting.
 - Det du søker på, sendes til Brønnøysundregistrene. Ingenting annet forlater maskinen din.
 

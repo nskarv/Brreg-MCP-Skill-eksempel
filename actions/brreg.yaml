@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: Enhetsregisteret
-  version: "1.0"
-  description: Brønnøysundregistrenes åpne API for Enhetsregisteret, uten nøkkel. Søk etter enheter på navn og slå opp én enhet på organisasjonsnummer. Data under Norsk lisens for offentlige data (NLOD 2.0); oppgi Brønnøysundregistrene som kilde.
+  title: Brønnøysundregistrene
+  version: "1.1"
+  description: Brønnøysundregistrenes åpne API-er for Enhetsregisteret og Regnskapsregisteret, uten nøkkel. Søk etter enheter på navn, slå opp én enhet, hent årsregnskap og roller. Data under Norsk lisens for offentlige data (NLOD 2.0); oppgi Brønnøysundregistrene som kilde.
 servers:
   - url: https://data.brreg.no
 paths:
@@ -49,3 +49,48 @@ paths:
           description: Ikke funnet
         "410":
           description: Fjernet av juridiske årsaker
+  /enhetsregisteret/api/enheter/{orgnr}/roller:
+    get:
+      operationId: hentRoller
+      summary: Hent daglig leder, styre, revisor og regnskapsfører for én enhet
+      description: Svaret har rollegrupper med roller. Les type.beskrivelse og person.navn (fornavn, mellomnavn, etternavn), eller enhet.navn og enhet.organisasjonsnummer for revisor og regnskapsfører. Hopp over roller med avregistrert eller fratraadt satt til true. Vis aldri fødselsdatoer. Aksjonærer finnes ikke her.
+      parameters:
+        - name: orgnr
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9]{9}$" }
+          description: Ni sifre uten mellomrom, for eksempel 923609016
+      responses:
+        "200":
+          description: Rollene
+          content:
+            application/json:
+              schema: { type: object }
+        "404":
+          description: Ikke funnet
+  /regnskapsregisteret/regnskap/{orgnr}:
+    get:
+      operationId: hentRegnskap
+      summary: Hent årsregnskapet for én enhet, de siste årene
+      description: Gir en liste med regnskap, vanligvis tre år, både SELSKAP og KONSERN når det finnes. Si alltid år, type og valuta (Equinor rapporterer i USD). Beløp er i hele enheter, ikke i tusen. Les resultatregnskapResultat (driftsresultat.driftsinntekter.sumDriftsinntekter, driftsresultat.driftsresultat, aarsresultat), eiendeler.sumEiendeler og egenkapitalGjeld (egenkapital.sumEgenkapital, gjeldOversikt.sumGjeld). 404 betyr at det ikke er levert regnskap; 500 med «oppstillingsplan som ikke er stottet» betyr bank eller forsikring, som ikke gis ut i åpne data.
+      parameters:
+        - name: orgnr
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9]{9}$" }
+          description: Ni sifre uten mellomrom, for eksempel 923609016
+        - name: år
+          in: query
+          required: false
+          schema: { type: integer }
+          description: Regnskapsår, for eksempel 2025. Utelat for de siste årene.
+      responses:
+        "200":
+          description: Liste med regnskap
+          content:
+            application/json:
+              schema: { type: array, items: { type: object } }
+        "404":
+          description: Ingen regnskap levert
+        "500":
+          description: Oppstillingsplan som ikke gis ut i åpne data (bank, forsikring)
