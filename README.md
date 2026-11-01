@@ -246,7 +246,7 @@ Begge bruker bare standardbiblioteket.
 
 ```bash
 python -m unittest test_brreg    # 45 enhetstester, uten nett
-python smoke_test.py             # 19 sjekker mot de ekte API-ene, rundt 25 forespørsler
+python smoke_test.py             # 20 sjekker mot de ekte API-ene, rundt 25 forespørsler
 ```
 
 Enhetstestene erstatter alle kall til Brreg med faste svar. De dekker kontrollsifferet, feltene, regnskap (sortering,
