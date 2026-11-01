@@ -94,6 +94,17 @@ def _():
     assert status == 200, f"HTTP {status}"
 
 
+@sjekk("Claude-appen: robots.txt på data.brreg.no svarer ikke")
+def _():
+    # RFC 9309: når robots.txt ikke kan hentes, skal en robot regne hele nettstedet som sperret.
+    # Claude-appens henteverktøy gjør det, og får ROBOTS_DISALLOWED på alle API-adressene.
+    try:
+        status, _ = raa("https://data.brreg.no/robots.txt")
+    except (urllib.error.URLError, ConnectionError, OSError) as feil:
+        return f"brutt forbindelse ({type(feil).__name__}), som dokumentert i SKILL.md"
+    raise AssertionError(f"robots.txt svarer nå HTTP {status}; sjekk om Claude-appen når API-et, og oppdater «Chat-apper» i SKILL.md")
+
+
 @sjekk("API: ukjent parameter gir 400 (ChatGPT)")
 def _():
     status, tekst = raa(f"{brreg.ENHETER_URL}/{EQUINOR}?utm_source=chatgpt.com")
@@ -107,7 +118,7 @@ def _():
     assert status == 200, f"HTTP {status}; ChatGPT-veien i SKILL.md virker ikke"
     # Skillen lover at navn, nummer, adresse og organisasjonsform står i teksten, ikke bare i skript.
     for ord in ["EQUINOR ASA", "923 609 016", "Forusbeen", "Allmennaksjeselskap"]:
-        assert ord in tekst, f"«{ord}» mangler på siden; oppdater «ChatGPT uten Actions» i SKILL.md"
+        assert ord in tekst, f"«{ord}» mangler på siden; oppdater «Chat-apper» i SKILL.md"
     return f"{len(tekst) // 1000} kB"
 
 
@@ -180,7 +191,7 @@ def _():
 def _():
     for url in [f"{brreg.REGNSKAP_URL}/{EQUINOR}", f"{brreg.ENHETER_URL}/{EQUINOR}/roller"]:
         status, _ = raa(url + "?utm_source=chatgpt.com")
-        assert status == 200, f"{url}: HTTP {status}; oppdater «ChatGPT uten Actions» i SKILL.md"
+        assert status == 200, f"{url}: HTTP {status}; oppdater «Chat-apper» i SKILL.md"
     return "begge 200"
 
 
@@ -247,7 +258,7 @@ def _():
 def _():
     status, tekst = raa(SKILL_URL + "?utm_source=chatgpt.com")  # slik ChatGPT henter den
     assert status == 200 and tekst.startswith("---\nname: brreg"), f"HTTP {status}"
-    assert "ChatGPT uten Actions" in tekst, "GitHub har en eldre SKILL.md; push endringene"
+    assert "Chat-apper: Claude og ChatGPT" in tekst, "GitHub har en eldre SKILL.md; push endringene"
 
 
 feil = resultater.count("FEIL")

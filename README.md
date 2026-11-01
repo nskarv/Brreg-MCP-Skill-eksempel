@@ -142,9 +142,16 @@ Testet 1. november 2026 med den offisielle MCP-klienten (Python SDK 2.3.0).
 ## Bruk som skill i Claude, uten kode
 
 `SKILL.md` er oppskriften for Claude. Den beskriver hvilke adresser som skal hentes, hvilke felt som skal leses,
-hva feilkodene betyr og hvordan svaret skal se ut. Claude kan hente nettsider selv, så den trenger ikke programmet.
+hva feilkodene betyr og hvordan svaret skal se ut.
 
-- **I en samtale:** dra `SKILL.md` inn i chatvinduet og spør: «Slå opp Equinor.» Websøk må være slått på.
+Én begrensning i Claude-appen: henteverktøyet følger robots.txt, og `data.brreg.no` bryter forbindelsen når noen ber
+om `/robots.txt`. Etter standarden (RFC 9309) regnes da hele nettstedet som sperret, så alle API-adressene gir
+`ROBOTS_DISALLOWED`. Skillen faller tilbake til Brregs nettside (virksomhet.brreg.no), som gir navn, adresse, form og
+bransje, men ikke status, MVA, roller eller regnskap. Har Claude kodekjøring med nettilgang til `data.brreg.no`, kjører
+skillen `brreg.py` i stedet og får alt. MCP-verktøyet i Claude Desktop og Claude Code har ingen av disse begrensningene.
+
+- **I en samtale:** dra `SKILL.md` inn i chatvinduet og spør: «Slå opp Equinor.» Websøk må være slått på. Uten
+  kodekjøring får du bare det Brregs nettside viser.
 - **Som fast skill i Claude:** pakk mappen `brreg/` med `SKILL.md` i en zip-fil og last den opp under
   Settings → Capabilities → Skills.
 - **I Claude Code:** legg `SKILL.md` i `.claude/skills/brreg/` i prosjektet, eller i `~/.claude/skills/brreg/`.
